@@ -1,0 +1,113 @@
+#!/bin/sh
+
+statusbar=""
+separator="|"
+
+currenttime() {
+    icon=""
+    currenttime="$(date "+%H:%M")"
+
+    statusbar="$icon $currenttime $separator $statusbar"
+}
+
+currentdate() {
+    icon=""
+    currentdate="$(date "+%d.%m.%Y.")"
+
+    statusbar="$icon $currentdate $statusbar"
+}
+
+memory() {
+    icon=""
+    memory="$(free -h | awk '/^Mem/ {print $3"/"$2}')"
+
+    statusbar="$icon $memory $separator $statusbar"
+}
+
+network() {
+    interface="enp2s0"
+    icon=""
+    vpn_up="$(ip addr | grep -c POINTOPOINT)"
+    network="$(ip addr show $interface | awk '/inet / {print substr($2,1,length($2)-3)}')"
+
+    [ "$vpn_up" -gt 0 ] && icon=""
+
+    statusbar="$icon $network $separator $statusbar"
+}
+
+diskusage() {
+    device="/dev/sda6"
+    icon=""
+    diskusage="$(df -h $device | awk 'NR==2 {print $3"/"$2}')"
+
+    statusbar="$icon $diskusage $separator $statusbar"
+}
+
+updates() {
+    icon=""
+    updates="$(pacman -Qu | wc -l)"
+
+    statusbar="$icon $updates $separator $statusbar"
+}
+
+volume() {
+    icon=""
+    status="$(volume-control -g)"
+    volume="$(volume-control -v)"
+
+    [ "$volume" -lt 50 ] && icon=""
+    [ "$volume" -gt 49 ] && icon=""
+
+    if [ "$status" = "muted" ]; then
+        icon=""
+
+        statusbar="$icon $status $separator $statusbar"
+    else
+        volume="$(echo "$volume" | sed "s/$/%/g")"
+
+        statusbar="$icon $volume $separator $statusbar"
+    fi
+}
+
+keyboardlayout() {
+    icon=""
+    keyboardlayout="$(setxkbmap -query | awk '/^layout/ {print $2}')"
+
+    statusbar="$icon $keyboardlayout $separator $statusbar"
+}
+
+main() {
+    while :
+    do
+        statusbar=""
+
+        currentdate
+        currenttime
+        volume
+        memory
+        network
+        updates
+        keyboardlayout
+        diskusage
+
+        xsetroot -name " $statusbar"
+
+        sleep 20
+    done
+}
+
+while getopts "se" options;
+do
+    case "$options" in
+        s)
+            main &
+            ;;
+        e)
+            pkill statusbar
+            exit 0
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+done
